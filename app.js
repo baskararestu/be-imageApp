@@ -1,10 +1,5 @@
 const express = require("express");
-const {
-  authRouter,
-  cateogryRouter,
-  productRouter,
-  transactionRouter,
-} = require("./router");
+const { authRouter } = require("./router");
 require("dotenv").config();
 const cors = require("cors");
 const env = process.env;
