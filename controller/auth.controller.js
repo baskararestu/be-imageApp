@@ -189,7 +189,9 @@ const editUserById = async (req, res) => {
     // handle file upload with Multer
     let imageUrl = user.image;
     const { file } = req;
-    imageUrl = file ? "/" + file.filename : null;
+    if (file) {
+      imageUrl = "/" + file.filename;
+    }
 
     // update user
     await db.execute(
@@ -209,57 +211,5 @@ const editUserById = async (req, res) => {
     res.status(500).json({ message: "An error occurred while updating user" });
   }
 };
-
-// const editUserById = async (req, res) => {
-//   try {
-//     const userId = getUserIdFromToken(req, res);
-//     const { username, password, fullname, bio } = req.body;
-//     const [rows] = await db.execute("SELECT * FROM users WHERE id_user=?", [
-//       userId,
-//     ]);
-//     if (rows.length === 0) {
-//       res.status(404).json({ message: "User not found" });
-//       return;
-//     }
-//     const user = rows[0];
-//     // check if the username is already taken by another user
-//     if (username && username !== user.username) {
-//       const [usernameRows] = await db.execute(
-//         "SELECT * FROM users WHERE username=? AND id_user!=?",
-//         [username, userId]
-//       );
-//       if (usernameRows.length > 0) {
-//         res.status(400).json({ message: "Username already taken" });
-//         return;
-//       }
-//     }
-//     // encrypt new password if provided
-//     let hashedPassword = user.password;
-//     if (password) {
-//       const salt = await bcrypt.genSalt(10);
-//       hashedPassword = await bcrypt.hash(password, salt);
-//     }
-//     // update user
-//     let image = user.image;
-//     if (req.file) {
-//       image = req.file.filename;
-//     }
-//     await db.execute(
-//       "UPDATE users SET username=?, password=?, fullname=?, bio=?, image=? WHERE id_user=?",
-//       [
-//         username || user.username,
-//         hashedPassword,
-//         fullname || user.fullname,
-//         bio || user.bio,
-//         image,
-//         userId,
-//       ]
-//     );
-//     res.status(200).json({ message: "User updated successfully" });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "An error occurred while updating user" });
-//   }
-// };
 
 module.exports = { login, CreateUser, fetchUserById, editUserById };
