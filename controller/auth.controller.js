@@ -13,9 +13,14 @@ const CreateUser = async (req, res) => {
   const schema = Joi.object({
     username: Joi.string().min(3).max(30).required(),
     email: Joi.string().email().required(),
-    fullname: Joi.string().min(7).max(30),
-    bio: Joi.string().min(4).max(50),
     password: Joi.string().min(6).max(30).required(),
+    confirmPassword: Joi.string()
+      .valid(Joi.ref("password"))
+      .required()
+      .messages({
+        "any.only": "Confirm password must match password",
+        "any.required": "Confirm password is required",
+      }),
   });
 
   const { error } = schema.validate(req.body);
@@ -30,7 +35,7 @@ const CreateUser = async (req, res) => {
   const { username, email, password } = req.body;
 
   const [rows] = await db.execute(
-    "SELECT * FROM users WHERE email = ? AND username = ?",
+    "SELECT * FROM users WHERE email = ? OR username = ?",
     [email, username]
   );
 
@@ -57,11 +62,11 @@ const CreateUser = async (req, res) => {
     "INSERT INTO users (username, email, password, isVerified) VALUES (?, ?, ?,false)",
     [username, email, hashedPassword]
   );
-  let addUserResult = [result];
 
   let payload = {
-    id: addUserResult.insertId,
+    id: result.insertId,
   };
+  console.log(payload);
   const token = jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: "1h",
   });
@@ -93,24 +98,55 @@ const CreateUser = async (req, res) => {
   }
 };
 
+const verification = async (req, res) => {
+  try {
+    // Get the user ID from the token
+    const userId = getUserIdFromToken(req, res);
+    console.log(userId);
+    // Update the isVerified field in the database for the user with the given ID
+    const [results] = await db.query(
+      `UPDATE users SET isVerified = ? WHERE id_user = ?`,
+      [true, userId]
+    );
+
+    // If the query was successful, send a success response
+    if (results.affectedRows > 0) {
+      res
+        .status(200)
+        .send({ success: true, message: "Your account is verified" });
+    } else {
+      res
+        .status(500)
+        .send({ success: false, message: "Failed to update user" });
+    }
+  } catch (error) {
+    // If an error occurs, send an error response
+    console.error(error);
+    res.status(500).send({ success: false, message: "Internal server error" });
+  }
+};
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const [rows] = await db.execute("SELECT * FROM users WHERE email=?", [
-      email,
-    ]);
+    const [rows] = await db.execute(
+      "SELECT * FROM users WHERE email=? AND isVerified=?",
+      [email, true]
+    );
+
     if (rows.length === 0) {
-      res
-        .status(401)
-        .json({ message: "Invalid email or password", success: false });
+      res.status(401).json({
+        message:
+          "You have not been verified yet. Please check your email for a verification link.",
+        success: false,
+      });
       return;
     }
+
     const user = rows[0];
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      res
-        .status(401)
-        .json({ message: "Invalid email or password", success: false });
+      res.status(401).json({ message: "Invalid password", success: false });
       return;
     }
 
@@ -144,7 +180,7 @@ const login = async (req, res) => {
 const fetchUserById = async (req, res) => {
   try {
     const userId = getUserIdFromToken(req, res);
-    console.log(userId);
+    console.log(userId, "test");
     const [results] = await db.query(
       `SELECT id_user,fullname,email,username,bio,image FROM users WHERE id_user = ${userId}`
     );
@@ -212,4 +248,10 @@ const editUserById = async (req, res) => {
   }
 };
 
-module.exports = { login, CreateUser, fetchUserById, editUserById };
+module.exports = {
+  login,
+  CreateUser,
+  verification,
+  fetchUserById,
+  editUserById,
+};

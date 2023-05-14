@@ -11,6 +11,7 @@ const getUserIdFromToken = (req, resp) => {
   }
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  console.log(decoded, "ini decoded helper");
   return decoded?.id;
 };
 
