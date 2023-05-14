@@ -2,7 +2,10 @@ const express = require("express");
 const { contentController } = require("../controller");
 const upload = require("../middleware/multer");
 const { verifyToken } = require("../middleware/auth");
-const { deleteContent } = require("../controller/content.controller");
+const {
+  deleteContent,
+  likeContent,
+} = require("../controller/content.controller");
 const router = express.Router();
 
 router.post(
@@ -19,5 +22,7 @@ router.post(
 );
 
 router.delete("/del-contents/:id", verifyToken, deleteContent);
+
+router.post("/contents/:id/like", verifyToken, likeContent);
 
 module.exports = router;

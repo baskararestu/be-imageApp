@@ -117,9 +117,63 @@ const deleteContent = async (req, res) => {
   }
 };
 
+const likeContent = async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req, res);
+    const contentId = req.params.id; // id of the content being liked
+    const userContentId = req.body.id_user; // id of the user who created the content
+
+    // check if the content exists
+    const [rows] = await db.execute(
+      "SELECT * FROM contents WHERE id_content = ?",
+      [contentId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Content not found" });
+    }
+
+    // check if the user has already liked the content
+    const [likes] = await db.execute(
+      "SELECT * FROM contentlikes WHERE id_user = ? AND id_content = ?",
+      [userId, contentId]
+    );
+    if (likes.length > 0) {
+      return res
+        .status(400)
+        .json({ message: "You have already liked this content" });
+    }
+
+    // check if the provided userContentId matches the actual owner of the content
+    const [contentOwner] = await db.execute(
+      "SELECT id_user FROM contents WHERE id_content = ?",
+      [contentId]
+    );
+    if (
+      contentOwner.length === 0 ||
+      contentOwner[0].id_user !== userContentId
+    ) {
+      return res.status(400).json({ message: "Invalid userContentId" });
+    }
+
+    // insert a new row into the contentlikes table
+    await db.execute(
+      "INSERT INTO contentlikes (id_user, id_content, id_user_content) VALUES (?, ?, ?)",
+      [userId, contentId, userContentId || null]
+    );
+
+    res.status(201).json({ message: "Content liked successfully" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while liking the content" });
+  }
+};
+
 module.exports = {
   addContent,
   showAllContent,
   editContent,
   deleteContent,
+  likeContent,
 };
