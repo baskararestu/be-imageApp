@@ -2,10 +2,6 @@ const express = require("express");
 const { contentController } = require("../controller");
 const upload = require("../middleware/multer");
 const { verifyToken } = require("../middleware/auth");
-const {
-  deleteContent,
-  likeContent,
-} = require("../controller/content.controller");
 const router = express.Router();
 
 router.post(
@@ -18,11 +14,21 @@ router.post(
   "/edit-content",
   verifyToken,
   upload.single("image"),
+  verifyToken,
   contentController.editContent
 );
 
-router.delete("/del-contents/:id", verifyToken, deleteContent);
+router.delete(
+  "/del-contents/:id",
+  verifyToken,
+  contentController.deleteContent
+);
 
-router.post("/contents/:id/like", verifyToken, likeContent);
+router.post("/contents/:id/like", verifyToken, contentController.likeContent);
+router.post(
+  "/contents/:id/comments",
+  verifyToken,
+  contentController.createComment
+);
 
 module.exports = router;

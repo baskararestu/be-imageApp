@@ -58,20 +58,40 @@ const showAllContent = async (req, res) => {
 
 const editContent = async (req, res) => {
   try {
+    const userId = getUserIdFromToken(req, res);
     const { id_content, caption } = req.body;
-    let image = "";
+    let image = null;
     const { file } = req;
     if (file) {
       image = "/" + file.filename;
     }
 
-    // check if any of the parameters are undefined and replace them with null if necessary
-    const params = [caption, image, id_content];
-    for (let i = 0; i < params.length; i++) {
-      if (typeof params[i] === "undefined") {
-        params[i] = null;
-      }
+    // fetch the current value of the image column from the database
+    const [rows] = await db.execute(
+      "SELECT image, id_user FROM contents WHERE id_content = ?",
+      [id_content]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Content not found" });
     }
+    const contentUserId = rows[0].id_user;
+    const currentImage = rows[0].image;
+
+    // check if the authenticated user is the owner of the content
+    if (userId !== contentUserId) {
+      return res
+        .status(401)
+        .json({ message: "You are not authorized to edit this content" });
+    }
+
+    // check if any of the parameters are undefined and replace them with null if necessary
+    const params = [caption];
+    if (image) {
+      params.push(image);
+    } else {
+      params.push(currentImage);
+    }
+    params.push(id_content);
 
     // update content
     const [result] = await db.execute(
@@ -170,10 +190,41 @@ const likeContent = async (req, res) => {
   }
 };
 
+const createComment = async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req, res);
+    const contentId = req.params.id; // id of the content being commented on
+    const { comment } = req.body;
+
+    // check if the content exists
+    const [rows] = await db.execute(
+      "SELECT * FROM contents WHERE id_content = ?",
+      [contentId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Content not found" });
+    }
+
+    // insert a new row into the comments table
+    await db.execute(
+      "INSERT INTO comments (id_user, id_content, comment) VALUES (?, ?, ?)",
+      [userId, contentId, comment]
+    );
+
+    res.status(201).json({ message: "Comment created successfully" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while creating the comment" });
+  }
+};
+
 module.exports = {
   addContent,
   showAllContent,
   editContent,
   deleteContent,
   likeContent,
+  createComment,
 };
