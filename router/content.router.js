@@ -9,7 +9,7 @@ router.post(
   upload.single("image"),
   contentController.addContent
 );
-router.get("/all-content", verifyToken, contentController.showAllContent);
+router.get("/all-content", contentController.showAllContent);
 router.post(
   "/edit-content",
   verifyToken,
@@ -30,5 +30,7 @@ router.post(
   verifyToken,
   contentController.createComment
 );
+router.get("/contents/:id/show-comments", contentController.getComments);
+router.get("/contents/:id/show-likes", contentController.getLikes);
 
 module.exports = router;

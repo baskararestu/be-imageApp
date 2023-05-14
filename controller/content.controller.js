@@ -220,6 +220,40 @@ const createComment = async (req, res) => {
   }
 };
 
+const getComments = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // retrieve the comments and usernames for the specific content id
+    const [rows] = await db.execute(
+      "SELECT comments.*, users.username FROM comments JOIN users ON comments.id_user = users.id_user WHERE comments.id_content = ?",
+      [id]
+    );
+
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const getLikes = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // retrieve the number of likes for the specific content id
+    const [rows] = await db.execute(
+      "SELECT COUNT(*) as num_likes FROM contentLikes WHERE id_content = ?",
+      [id]
+    );
+
+    res.status(200).json(rows[0].num_likes);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   addContent,
   showAllContent,
@@ -227,4 +261,6 @@ module.exports = {
   deleteContent,
   likeContent,
   createComment,
+  getComments,
+  getLikes,
 };
