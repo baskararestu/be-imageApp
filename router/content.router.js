@@ -14,13 +14,7 @@ router.get("/my-post", contentController.contentByIdUser);
 router.get("/content/:id_content", contentController.getContentById);
 router.get("/infinite-scroll", contentController.infiniteScrollContent);
 
-router.post(
-  "/edit-content",
-  verifyToken,
-  upload.single("image"),
-  verifyToken,
-  contentController.editContent
-);
+router.post("/edit-content/:id", verifyToken, contentController.editContent);
 
 router.delete(
   "/del-contents/:id",

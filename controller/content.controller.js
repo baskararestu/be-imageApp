@@ -79,58 +79,21 @@ const contentByIdUser = async (req, res) => {
 
 const infiniteScrollContent = async (req, res) => {
   try {
-    const ITEMS_PER_PAGE = 9; // Number of items to load per page
-    let { page } = req.query;
-    page = parseInt(page) || 1;
-
-    // Calculate the offset based on the current page and items per page
-    const offset = (page - 1) * ITEMS_PER_PAGE;
-
-    // Query to get the total count of content
-    const totalCountQuery = `SELECT COUNT(*) AS total FROM contents`;
-    const [totalCountRows] = await db.execute(totalCountQuery);
-    const totalContentCount = totalCountRows[0].total;
-
-    // Calculate the total number of pages
-    const totalPages = Math.ceil(totalContentCount / ITEMS_PER_PAGE);
-
-    // Calculate the indices of the items to include in the current page
-    const startIdx = offset % totalContentCount;
-    const endIdx = (startIdx + ITEMS_PER_PAGE) % totalContentCount;
-
-    // Query to get a page of content with their corresponding usernames, creation times, and number of likes
+    // Query to get all content with their corresponding usernames, creation times, comments, and number of likes
     const query = `
       SELECT c.*, u.username, c.createAt, COUNT(l.id_contentLikes) AS likes
       FROM contents c
       JOIN users u ON c.id_user = u.id_user
       LEFT JOIN contentLikes l ON c.id_content = l.id_content
       GROUP BY c.id_content
-      ORDER BY c.createAt ASC
-      LIMIT ${ITEMS_PER_PAGE} OFFSET ${startIdx}
+      ORDER BY c.id_content ASC
     `;
 
     // Execute the query
     const [rows] = await db.execute(query);
 
-    let content = rows;
-    if (endIdx < startIdx) {
-      // Wrap-around, concatenate two queries
-      const remainingItemsCount = ITEMS_PER_PAGE;
-      const remainingItemsQuery = `
-        SELECT c.*, u.username, c.createAt, COUNT(l.id_contentLikes) AS likes
-        FROM contents c
-        JOIN users u ON c.id_user = u.id_user
-        LEFT JOIN contentLikes l ON c.id_content = l.id_content
-        GROUP BY c.id_content
-        ORDER BY c.createAt DESC
-        LIMIT ${remainingItemsCount}
-      `;
-      const [remainingItemsRows] = await db.execute(remainingItemsQuery);
-      content = content.concat(remainingItemsRows);
-    }
-
     // Fetch comments for each content separately
-    for (const item of content) {
+    for (const item of rows) {
       const commentQuery = `
         SELECT com.comment, u.username
         FROM comments com JOIN users u ON com.id_user = u.id_user
@@ -141,8 +104,7 @@ const infiniteScrollContent = async (req, res) => {
       item.comments = commentRows;
     }
 
-    // Return the content with their corresponding usernames, creation times, comments, and number of likes
-    res.status(200).json({ content, totalPages });
+    res.status(200).json({ content: rows });
   } catch (error) {
     console.error(error);
     res
@@ -182,24 +144,19 @@ const getContentById = async (req, res) => {
 
 const editContent = async (req, res) => {
   try {
-    const userId = getUserIdFromToken(req, res);
-    const { id_content, caption } = req.body;
-    let image = null;
-    const { file } = req;
-    if (file) {
-      image = "/" + file.filename;
-    }
+    const userId = getUserIdFromToken(req);
+    const { caption } = req.body;
+    const { id } = req.params; // Get the id from the route parameter
 
-    // fetch the current value of the image column from the database
+    // fetch the current value of the id_user column from the database
     const [rows] = await db.execute(
-      "SELECT image, id_user FROM contents WHERE id_content = ?",
-      [id_content]
+      "SELECT id_user FROM contents WHERE id_content = ?",
+      [id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ message: "Content not found" });
     }
     const contentUserId = rows[0].id_user;
-    const currentImage = rows[0].image;
 
     // check if the authenticated user is the owner of the content
     if (userId !== contentUserId) {
@@ -208,19 +165,10 @@ const editContent = async (req, res) => {
         .json({ message: "You are not authorized to edit this content" });
     }
 
-    // check if any of the parameters are undefined and replace them with null if necessary
-    const params = [caption];
-    if (image) {
-      params.push(image);
-    } else {
-      params.push(currentImage);
-    }
-    params.push(id_content);
-
     // update content
     const [result] = await db.execute(
-      "UPDATE contents SET caption = ?, image = ? WHERE id_content = ?",
-      params
+      "UPDATE contents SET caption = ? WHERE id_content = ?",
+      [caption, id]
     );
 
     // check if any rows were affected by the update query
