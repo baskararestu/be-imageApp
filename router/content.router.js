@@ -10,6 +10,9 @@ router.post(
   contentController.addContent
 );
 router.get("/all-content", contentController.showAllContent);
+router.get("/content/:id_content", contentController.getContentById);
+router.get("/infinite-scroll", contentController.infiniteScrollContent);
+
 router.post(
   "/edit-content",
   verifyToken,
