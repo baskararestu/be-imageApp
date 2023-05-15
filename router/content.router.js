@@ -10,6 +10,7 @@ router.post(
   contentController.addContent
 );
 router.get("/all-content", contentController.showAllContent);
+router.get("/my-post", contentController.contentByIdUser);
 router.get("/content/:id_content", contentController.getContentById);
 router.get("/infinite-scroll", contentController.infiniteScrollContent);
 

@@ -55,6 +55,27 @@ const showAllContent = async (req, res) => {
       .json({ message: "An error occurred while fetching content" });
   }
 };
+const contentByIdUser = async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req, res);
+
+    // get content by user id
+    const [rows] = await db.execute(
+      `SELECT c.*, u.username, u.fullname,c.createAt 
+       FROM contents c JOIN users u ON c.id_user = u.id_user
+       WHERE c.id_user = ?`,
+      [userId]
+    );
+
+    // return the content with their corresponding usernames and creation times
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching content by user" });
+  }
+};
 
 const infiniteScrollContent = async (req, res) => {
   try {
@@ -134,9 +155,9 @@ const getContentById = async (req, res) => {
   try {
     const { id_content } = req.params;
 
-    // Query the database to get the content by id and include the username
+    // Query the database to get the content by id and include the username and full name
     const [rows] = await db.execute(
-      `SELECT c.*, u.username 
+      `SELECT c.*, u.username, u.fullname 
        FROM contents c 
        JOIN users u ON c.id_user = u.id_user 
        WHERE c.id_content = ?`,
@@ -219,7 +240,7 @@ const deleteContent = async (req, res) => {
     const id_content = req.params.id;
     const userId = getUserIdFromToken(req, res);
 
-    // check if the content exists and belongs to the user
+    // Check if the content exists and belongs to the user
     const [[content]] = await db.execute(
       "SELECT * FROM contents WHERE id_content = ? AND id_user = ?",
       [id_content, userId]
@@ -228,7 +249,15 @@ const deleteContent = async (req, res) => {
       return res.status(404).json({ message: "Content not found" });
     }
 
-    // delete the content
+    // Delete associated contentLikes
+    await db.execute("DELETE FROM contentLikes WHERE id_content = ?", [
+      id_content,
+    ]);
+
+    // Delete associated comments
+    await db.execute("DELETE FROM comments WHERE id_content = ?", [id_content]);
+
+    // Delete the content
     await db.execute("DELETE FROM contents WHERE id_content = ?", [id_content]);
 
     res.status(200).json({ message: "Content deleted successfully" });
@@ -360,6 +389,7 @@ const getLikes = async (req, res) => {
 module.exports = {
   addContent,
   showAllContent,
+  contentByIdUser,
   getContentById,
   infiniteScrollContent,
   editContent,
