@@ -273,8 +273,8 @@ const login = async (req, res) => {
     const [rows] = await db.execute("SELECT * FROM users WHERE email=?", [
       email,
     ]);
-
     const user = rows[0];
+    console.log(user.password);
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       res.status(401).json({ message: "Invalid password", success: false });
