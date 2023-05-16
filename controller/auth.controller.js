@@ -256,6 +256,12 @@ const resetPassword = async (req, res) => {
       userId,
     ]);
 
+    // Delete or set resetPasswordToken to NULL
+    await db.execute(
+      "UPDATE users SET resetPasswordToken = NULL WHERE id_user = ?",
+      [userId]
+    );
+
     return res.status(200).json({
       message: "Password reset successful.",
     });
