@@ -76,11 +76,10 @@ const CreateUser = async (req, res) => {
     to: `${email}`,
     subject: `Verfied your account`,
     html: `
-          <div>
-          <p>Thanks for register, you need to activate your account,</p>
+        <div>
+          <p>Thanks for registering! Please click the following link to verify your account:</p>
           <a href="http://localhost:3000/verification/${token}">Click Here</a>
-          <span>to activate</span>
-          </div>
+        </div>
           `,
   };
   let response = await nodemailer.sendMail(mail);
@@ -126,22 +125,125 @@ const verification = async (req, res) => {
   }
 };
 
+const resendVerification = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Retrieve the user from the database based on the email
+    const [rows] = await db.execute("SELECT * FROM users WHERE email = ?", [
+      email,
+    ]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    const user = rows[0];
+    console.log(user);
+    if (user.isVerified) {
+      return res.status(400).json({
+        message: "User is already verified.",
+      });
+    }
+
+    // Generate a new verification token
+    const token = jwt.sign({ id: user.id_user }, process.env.JWT_SECRET, {
+      expiresIn: "10m",
+    });
+
+    // Update the user's verification token and isVerified status in the database
+    await db.execute(
+      "UPDATE users SET verificationToken = ? WHERE id_user = ?",
+      [token, user.id_user]
+    );
+
+    // Send the verification email
+    const mail = {
+      from: `Admin <baskararw10@gmail.com>`,
+      to: `${email}`,
+      subject: `Verfied your account`,
+      html: `
+        <div>
+          <p>Thanks for registering! Please click the following link to verify your account:</p>
+          <a href="http://localhost:3000/verification/${token}">Click Here</a>
+        </div>
+      `,
+    };
+
+    await nodemailer.sendMail(mail);
+
+    return res.status(200).json({
+      message: "Verification email sent successfully.",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Verification link expired ",
+    });
+  }
+};
+
+const forgetPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Retrieve the user from the database based on the email
+    const [rows] = await db.execute("SELECT * FROM users WHERE email = ?", [
+      email,
+    ]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    const user = rows[0];
+    // Generate a reset password token
+    const token = jwt.sign({ id: user.id_user }, process.env.JWT_SECRET, {
+      expiresIn: "30m",
+    });
+
+    // Update the user's verification token (reset password token) in the database
+    await db.execute(
+      "UPDATE users SET verificationToken = ? WHERE id_user = ?",
+      [token, user.id_user]
+    );
+
+    // Send the reset password email
+    const mail = {
+      from: "Admin <baskararw10@gmail.com>",
+      to: email,
+      subject: "Reset Your Password",
+      html: `
+        <div>
+          <p>You have requested to reset your password. Please click the following link to proceed:</p>
+          <a href="http://localhost:3000/reset-password/${token}">Reset Password</a>
+        </div>
+      `,
+    };
+
+    await nodemailer.sendMail(mail);
+
+    return res.status(200).json({
+      message: "Reset password email sent successfully.",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "An error occurred while processing your request.",
+    });
+  }
+};
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const [rows] = await db.execute(
-      "SELECT * FROM users WHERE email=? AND isVerified=?",
-      [email, true]
-    );
-
-    if (rows.length === 0) {
-      res.status(401).json({
-        message:
-          "You have not been verified yet. Please check your email for a verification link.",
-        success: false,
-      });
-      return;
-    }
+    const [rows] = await db.execute("SELECT * FROM users WHERE email=?", [
+      email,
+    ]);
 
     const user = rows[0];
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -182,7 +284,7 @@ const fetchUserById = async (req, res) => {
     const userId = getUserIdFromToken(req, res);
     console.log(userId, "test");
     const [results] = await db.query(
-      `SELECT id_user,fullname,email,username,bio,image FROM users WHERE id_user = ${userId}`
+      `SELECT id_user,fullname,email,username,bio,image,isVerified FROM users WHERE id_user = ${userId}`
     );
     if (results.length === 0) {
       return res.status(404).json({ error: "User not found" });
@@ -252,6 +354,8 @@ module.exports = {
   login,
   CreateUser,
   verification,
+  resendVerification,
+  forgetPassword,
   fetchUserById,
   editUserById,
 };
