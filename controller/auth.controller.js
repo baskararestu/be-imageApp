@@ -208,7 +208,7 @@ const forgetPassword = async (req, res) => {
 
     // Update the user's verification token (reset password token) in the database
     await db.execute(
-      "UPDATE users SET verificationToken = ? WHERE id_user = ?",
+      "UPDATE users SET resetPasswordToken = ? WHERE id_user = ?",
       [token, user.id_user]
     );
 
@@ -234,6 +234,35 @@ const forgetPassword = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       message: "An error occurred while processing your request.",
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const { newPassword, confirmPassword } = req.body;
+  const token = req.headers.authorization.split(" ")[1]; // Assuming the token is passed as "Bearer <token>"
+
+  try {
+    // Verify the token
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decodedToken.id;
+    console.log(userId, "reset pw");
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the user's password in the database
+    await db.execute("UPDATE users SET password = ? WHERE id_user = ?", [
+      hashedPassword,
+      userId,
+    ]);
+
+    return res.status(200).json({
+      message: "Password reset successful.",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "An error occurred while resetting the password.",
     });
   }
 };
@@ -356,6 +385,7 @@ module.exports = {
   verification,
   resendVerification,
   forgetPassword,
+  resetPassword,
   fetchUserById,
   editUserById,
 };
